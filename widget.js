@@ -9,7 +9,7 @@ const JSON_URL = "https://raw.githubusercontent.com/with-Soopi/yeonmyu-quotes/re
 
 // 대사 폰트: 기본 시스템 폰트(산세리프). 세리프 느낌을 원하면
 // 아래를 "georgia"로 바꿔보세요. (iOS 내장 세리프 폰트)
-const QUOTE_FONT = "system"; // "system" 또는 "georgia"
+const QUOTE_FONT = "georgia"; // "system" 또는 "georgia"
 
 // 대사가 바뀌는 간격(시간 단위). 1 = 1시간마다, 3 = 3시간마다, 24 = 하루 한 번
 const CHANGE_EVERY_HOURS = 1;
