@@ -1,6 +1,6 @@
 // ============================================================
 // 오늘의 연뮤 문장 — Scriptable 위젯
-// 매일 자정에 바뀌는 연극/뮤지컬 대사 위젯
+// 일정 시간마다 바뀌는 연극/뮤지컬 대사 위젯
 // ============================================================
 
 // ▼ 여기에 GitHub raw URL을 붙여넣으세요.
@@ -10,6 +10,9 @@ const JSON_URL = "https://raw.githubusercontent.com/with-Soopi/yeonmyu-quotes/re
 // 대사 폰트: 기본 시스템 폰트(산세리프). 세리프 느낌을 원하면
 // 아래를 "georgia"로 바꿔보세요. (iOS 내장 세리프 폰트)
 const QUOTE_FONT = "system"; // "system" 또는 "georgia"
+
+// 대사가 바뀌는 간격(시간 단위). 1 = 1시간마다, 3 = 3시간마다, 24 = 하루 한 번
+const CHANGE_EVERY_HOURS = 1;
 
 const CACHE_FILE = "yeonmyu-quotes-cache.json";
 
@@ -35,18 +38,30 @@ async function loadQuotes() {
   }
 }
 
-// ── 날짜 기반 시드 → 오늘의 대사 선택 ────────────────────────
-// 같은 날에는 항상 같은 대사가 나온다.
-function todaysQuote(quotes) {
-  const now = new Date();
+// ── 날짜+시간 기반 시드 → 지금 시간대의 대사 선택 ─────────────
+// 같은 시간대에는 항상 같은 대사가 나온다.
+function hashPick(when, count) {
+  const bucket = Math.floor(when.getHours() / CHANGE_EVERY_HOURS);
   const dateKey =
-    now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+    (when.getFullYear() * 10000 + (when.getMonth() + 1) * 100 + when.getDate()) *
+      100 + bucket;
   // 간단한 정수 해시 (mulberry32 한 스텝)
   let t = (dateKey + 0x6d2b79f5) | 0;
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   const seed = (t ^ (t >>> 14)) >>> 0;
-  return quotes[seed % quotes.length];
+  return seed % count;
+}
+
+function todaysQuote(quotes) {
+  const now = new Date();
+  let i = hashPick(now, quotes.length);
+  // 직전 시간대와 같은 대사가 뽑히면 한 칸 밀어서 연속 중복 방지
+  const prev = new Date(now.getTime() - CHANGE_EVERY_HOURS * 3600 * 1000);
+  if (quotes.length > 1 && hashPick(prev, quotes.length) === i) {
+    i = (i + 1) % quotes.length;
+  }
+  return quotes[i];
 }
 
 function quoteFont(size, weight) {
@@ -118,10 +133,13 @@ function buildWidget(quote, family, fromCache) {
     off.textColor = fgDim;
   }
 
-  // 다음 자정 이후 새 대사로 갱신
-  const midnight = new Date();
-  midnight.setHours(24, 0, 0, 0);
-  w.refreshAfterDate = midnight;
+  // 다음 교체 시각 이후 새 대사로 갱신
+  const next = new Date();
+  next.setHours(
+    (Math.floor(next.getHours() / CHANGE_EVERY_HOURS) + 1) * CHANGE_EVERY_HOURS,
+    0, 0, 0
+  );
+  w.refreshAfterDate = next;
   return w;
 }
 
