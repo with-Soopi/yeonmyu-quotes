@@ -103,7 +103,7 @@
 <header>
   <h1>오늘의 연뮤 문장 🎭</h1>
   <button class="tab on" id="tabView">감상</button>
-  <button class="tab" id="tabEdit">편집</button>
+  <button class="tab" id="tabEdit" style="display:none">편집</button>
 </header>
 
 <!-- 감상 -->
@@ -585,6 +585,16 @@ function switchTab(view) {
 }
 $("tabView").onclick = () => switchTab(true);
 $("tabEdit").onclick = () => switchTab(false);
+
+// ── 편집 모드 (주인만 보이게) ─────────────────────────
+// 주소 뒤에 ?edit=on 을 붙여 열면 이 기기에서 편집 탭이 계속 보이고,
+// ?edit=off 로 열면 다시 숨겨진다. 일반 방문자에게는 감상 화면만 보인다.
+{
+  const editParam = new URLSearchParams(location.search).get("edit");
+  if (editParam === "on") localStorage.setItem("editor_mode", "1");
+  if (editParam === "off") { localStorage.removeItem("editor_mode"); switchTab(true); }
+  if (localStorage.getItem("editor_mode")) $("tabEdit").style.display = "";
+}
 
 // ── 토스트 ────────────────────────────────────────────
 let toastTimer;
