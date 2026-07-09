@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>오늘의 연뮤 문장</title>
+<style>
+  :root {
+    --ink: #1C1C1E;
+    --paper: #FAF6EF;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    font-family: ui-serif, Georgia, "Apple SD Gothic Neo", serif;
+    background:#14141C; color:var(--paper); min-height:100vh;
+  }
+  /* ── 상단 탭 ── */
+  header {
+    position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:8px;
+    padding:calc(env(safe-area-inset-top) + 12px) 16px 12px;
+    background:rgba(20,20,28,.82); backdrop-filter:blur(12px);
+  }
+  header h1 { font-size:16px; font-weight:600; margin-right:auto; letter-spacing:.3px; }
+  .tab {
+    border:1px solid rgba(250,246,239,.35); background:transparent; color:var(--paper);
+    border-radius:999px; padding:7px 16px; font-size:14px; font-family:inherit; cursor:pointer;
+  }
+  .tab.on { background:var(--paper); color:var(--ink); border-color:var(--paper); }
+
+  /* ── 감상 탭 ── */
+  #viewPane {
+    min-height:calc(100vh - 60px); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center;
+    padding:48px 28px calc(env(safe-area-inset-bottom) + 48px);
+    transition:background-color .45s ease, color .45s ease;
+  }
+  #vBadge { font-size:12.5px; opacity:.6; letter-spacing:.4px; margin-bottom:26px; }
+  #vText { font-size:26px; line-height:1.65; white-space:pre-line; font-weight:500; max-width:560px; }
+  #vMoods { margin-top:24px; font-size:14px; opacity:.7; }
+  #vWork { margin-top:10px; font-size:15px; opacity:.82; }
+  #vNext {
+    margin-top:44px; padding:14px 28px; border:1px solid currentColor; border-radius:999px;
+    background:transparent; color:inherit; font-size:16px; font-family:inherit; cursor:pointer;
+    opacity:.85; transition:opacity .2s;
+  }
+  #vNext:active { opacity:.4; }
+
+  /* ── 편집 탭 ── */
+  #editPane { display:none; padding:20px 16px calc(env(safe-area-inset-bottom) + 120px); max-width:760px; margin:0 auto; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:16px; }
+  .btn {
+    border:1px solid rgba(250,246,239,.35); background:transparent; color:var(--paper);
+    border-radius:10px; padding:10px 14px; font-size:14px; font-family:inherit; cursor:pointer;
+  }
+  .btn.primary { background:var(--paper); color:var(--ink); border-color:var(--paper); font-weight:600; }
+  .btn:disabled { opacity:.4; cursor:default; }
+  #dirty { font-size:12.5px; color:#FFC864; display:none; }
+  .card {
+    border:1px solid rgba(250,246,239,.16); border-radius:14px; padding:14px 14px 12px;
+    margin-bottom:10px; display:flex; gap:12px; align-items:flex-start;
+  }
+  .swatch { width:34px; height:34px; border-radius:9px; flex:none; border:1px solid rgba(250,246,239,.25); }
+  .card .txt { flex:1; min-width:0; }
+  .card .quote { font-size:15px; line-height:1.55; white-space:pre-line; }
+  .card .meta { margin-top:6px; font-size:12.5px; opacity:.62; }
+  .card .moods { margin-top:4px; font-size:12.5px; color:#E8C9A0; }
+  .card .ops { display:flex; flex-direction:column; gap:6px; }
+  .mini { border:none; background:rgba(250,246,239,.12); color:var(--paper); border-radius:8px;
+    padding:6px 10px; font-size:12.5px; font-family:inherit; cursor:pointer; }
+
+  /* ── 폼/모달 ── */
+  .overlay {
+    display:none; position:fixed; inset:0; z-index:20; background:rgba(0,0,0,.55);
+    align-items:flex-end; justify-content:center;
+  }
+  .overlay.on { display:flex; }
+  .sheet {
+    background:#20202B; width:100%; max-width:560px; border-radius:18px 18px 0 0;
+    padding:20px 18px calc(env(safe-area-inset-bottom) + 20px); max-height:88vh; overflow:auto;
+  }
+  .sheet h2 { font-size:16px; margin-bottom:14px; }
+  .sheet label { display:block; font-size:12.5px; opacity:.7; margin:12px 0 5px; }
+  .sheet input, .sheet textarea, .sheet select {
+    width:100%; background:#14141C; border:1px solid rgba(250,246,239,.2); color:var(--paper);
+    border-radius:10px; padding:11px 12px; font-size:15px; font-family:inherit;
+  }
+  .sheet textarea { min-height:96px; line-height:1.6; resize:vertical; }
+  .row2 { display:flex; gap:10px; }
+  .row2 > div { flex:1; }
+  .sheet .actions { display:flex; gap:8px; margin-top:18px; }
+  .sheet .actions .btn { flex:1; text-align:center; }
+  .hint { font-size:12px; opacity:.55; line-height:1.6; margin-top:6px; }
+  .hint a { color:#A0C8FF; }
+  #toast {
+    position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom) + 24px); transform:translateX(-50%);
+    background:var(--paper); color:var(--ink); border-radius:999px; padding:11px 20px;
+    font-size:14px; z-index:30; display:none; max-width:88vw; text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>오늘의 연뮤 문장 🎭</h1>
+  <button class="tab on" id="tabView">감상</button>
+  <button class="tab" id="tabEdit">편집</button>
+</header>
+
+<!-- 감상 -->
+<section id="viewPane">
+  <div id="vBadge"></div>
+  <div id="vText">불러오는 중…</div>
+  <div id="vMoods"></div>
+  <div id="vWork"></div>
+  <button id="vNext">다음 문장 →</button>
+</section>
+
+<!-- 편집 -->
+<section id="editPane">
+  <div class="bar">
+    <button class="btn primary" id="addBtn">+ 새 대사</button>
+    <button class="btn" id="importBtn">📄 CSV/엑셀 불러오기</button>
+    <button class="btn" id="saveBtn">GitHub에 저장</button>
+    <button class="btn" id="tokenBtn">🔑 열쇠 설정</button>
+    <span id="dirty">● 저장 안 된 변경사항</span>
+    <input type="file" id="importFile" accept=".csv,.xlsx,.xlsm" style="display:none">
+  </div>
+  <div id="list"></div>
+</section>
+
+<!-- 대사 추가/수정 폼 -->
+<div class="overlay" id="formOv">
+  <div class="sheet">
+    <h2 id="formTitle">새 대사</h2>
+    <div class="row2">
+      <div><label>장르</label>
+        <select id="fGenre"><option>뮤지컬</option><option>연극</option><option>음악극</option></select></div>
+      <div><label>작품명</label><input id="fWork" placeholder="예: 빨래"></div>
+    </div>
+    <label>넘버(곡) 제목 — 연극이면 비워두세요</label>
+    <input id="fSong" placeholder="예: 슬플 땐 빨래를 해">
+    <label>대사 — 줄바꿈은 그냥 엔터로</label>
+    <textarea id="fText" placeholder="빨래가 마르는 것처럼&#10;슬픈 네 눈물도 마를 거야"></textarea>
+    <label>mood 태그 — 쉼표로 구분</label>
+    <input id="fMoods" placeholder="위로, 희망">
+    <label>배경색 — 작품명에 따라 자동, 원하면 직접 선택</label>
+    <input type="color" id="fColor" style="height:44px; padding:4px;">
+    <div class="actions">
+      <button class="btn" id="fCancel">취소</button>
+      <button class="btn primary" id="fSave">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 토큰 설정 -->
+<div class="overlay" id="tokenOv">
+  <div class="sheet">
+    <h2>🔑 GitHub 열쇠(토큰) 설정</h2>
+    <p class="hint">
+      웹사이트가 GitHub에 저장하려면 "열쇠"가 한 번 필요해요.<br>
+      1. <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">이 링크</a>를 새 탭에서 열기 (GitHub 로그인 필요)<br>
+      2. Token name: <b>yeonmyu</b> / Expiration: <b>No expiration</b><br>
+      3. Repository access: <b>Only select repositories</b> → <b>yeonmyu-quotes</b> 선택<br>
+      4. Permissions → Repository permissions → <b>Contents</b>를 <b>Read and write</b>로<br>
+      5. 맨 아래 <b>Generate token</b> → 나온 <b>github_pat_...</b> 글자를 복사해 아래에 붙여넣기
+    </p>
+    <label>토큰</label>
+    <input id="tokenInput" placeholder="github_pat_..." autocomplete="off">
+    <p class="hint">이 열쇠는 <b>지금 이 기기의 브라우저에만</b> 저장돼요. 아이폰에서도 쓰려면 아이폰에서 한 번 더 붙여넣으면 돼요.</p>
+    <div class="actions">
+      <button class="btn" id="tokenDel">열쇠 지우기</button>
+      <button class="btn" id="tokenCancel">닫기</button>
+      <button class="btn primary" id="tokenSave">저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── 설정 ──────────────────────────────────────────────
+const OWNER = "with-Soopi";
+const REPO = "yeonmyu-quotes";
+const FILE = "quotes.json";
+const BRANCH = "main";
+const RAW_URL = `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${FILE}`;
+const CHANGE_EVERY_HOURS = 1; // 위젯과 같은 간격
+
+let quotes = [];
+let dirty = false;
+let editingId = null; // null이면 새 대사
+let browseLast = -1;
+
+const $ = (id) => document.getElementById(id);
+
+// ── 색상 자동 배정 (convert.py와 같은 규칙) ───────────
+function hashStr(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 33) ^ s.charCodeAt(i)) >>> 0;
+  return h;
+}
+const TONES = [[0.42,0.30],[0.38,0.36],[0.45,0.26],[0.33,0.42],[0.30,0.80],[0.35,0.34]];
+function hslToHex(h, s, l) {
+  const a = s * Math.min(l, 1 - l);
+  const f = (n) => {
+    const k = (n + h * 12) % 12;
+    const c = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255).toString(16).padStart(2, "0");
+  };
+  return ("#" + f(0) + f(8) + f(4)).toUpperCase();
+}
+function colorForWork(work) {
+  // 같은 작품이 이미 있으면 그 색 재사용
+  const same = quotes.find((q) => q.work === work && q.color);
+  if (same) return same.color;
+  const h = hashStr(work);
+  const [s, l] = TONES[(h >>> 9) % TONES.length];
+  return hslToHex((h % 360) / 360, s, l);
+}
+function textColorFor(hex) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const lin = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  const L = 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+  return L > 0.35 ? "#1C1C1E" : "#FAF6EF";
+}
+
+// ── 위젯과 동일한 "지금 이 시간의 문장" 선택 ──────────
+function hashPick(when, count) {
+  const bucket = Math.floor(when.getHours() / CHANGE_EVERY_HOURS);
+  const dateKey =
+    (when.getFullYear() * 10000 + (when.getMonth() + 1) * 100 + when.getDate()) * 100 + bucket;
+  let t = (dateKey + 0x6d2b79f5) | 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) % count;
+}
+function nowQuoteIndex() {
+  const now = new Date();
+  let i = hashPick(now, quotes.length);
+  const prev = new Date(now.getTime() - CHANGE_EVERY_HOURS * 3600 * 1000);
+  if (quotes.length > 1 && hashPick(prev, quotes.length) === i) i = (i + 1) % quotes.length;
+  return i;
+}
+
+// ── 감상 탭 ───────────────────────────────────────────
+function showQuote(i, badge) {
+  const q = quotes[i];
+  if (!q) return;
+  browseLast = i;
+  const pane = $("viewPane");
+  pane.style.backgroundColor = q.color || "#1C1C2E";
+  pane.style.color = q.textColor || "#FAF6EF";
+  $("vBadge").textContent = badge || "";
+  $("vText").textContent = q.text || "";
+  $("vMoods").textContent = (q.moods || []).map((m) => "#" + m).join("  ");
+  $("vWork").textContent =
+    (q.genre ? q.genre + " " : "") + "〈" + (q.work || "") + "〉" + (q.song ? " · " + q.song : "");
+}
+function showNow() { showQuote(nowQuoteIndex(), "지금 위젯에 떠 있는 문장"); }
+$("vNext").addEventListener("click", () => {
+  if (quotes.length < 2) return;
+  let i = Math.floor(Math.random() * quotes.length);
+  while (i === browseLast) i = Math.floor(Math.random() * quotes.length);
+  showQuote(i, "");
+});
+
+// ── 편집 탭: 목록 ─────────────────────────────────────
+function renderList() {
+  const box = $("list");
+  box.innerHTML = "";
+  [...quotes].sort((a, b) => b.id - a.id).forEach((q) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    const sw = document.createElement("div");
+    sw.className = "swatch";
+    sw.style.background = q.color || "#333";
+    const txt = document.createElement("div");
+    txt.className = "txt";
+    const quote = document.createElement("div");
+    quote.className = "quote";
+    quote.textContent = q.text;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    meta.textContent = `${q.genre} 〈${q.work}〉` + (q.song ? " · " + q.song : "") + ` · #${q.id}`;
+    const moods = document.createElement("div");
+    moods.className = "moods";
+    moods.textContent = (q.moods || []).map((m) => "#" + m).join(" ");
+    txt.append(quote, meta, moods);
+    const ops = document.createElement("div");
+    ops.className = "ops";
+    const eb = document.createElement("button");
+    eb.className = "mini"; eb.textContent = "수정";
+    eb.onclick = () => openForm(q.id);
+    const db = document.createElement("button");
+    db.className = "mini"; db.textContent = "삭제";
+    db.onclick = () => {
+      if (!confirm(`이 대사를 삭제할까요?\n\n"${q.text.split("\n")[0]}…"`)) return;
+      quotes = quotes.filter((x) => x.id !== q.id);
+      markDirty(); renderList();
+    };
+    ops.append(eb, db);
+    card.append(sw, txt, ops);
+    box.append(card);
+  });
+}
+function markDirty() { dirty = true; $("dirty").style.display = "inline"; }
+window.addEventListener("beforeunload", (e) => { if (dirty) e.preventDefault(); });
+
+// ── 대사 폼 ───────────────────────────────────────────
+function openForm(id) {
+  editingId = id ?? null;
+  const q = id ? quotes.find((x) => x.id === id) : null;
+  $("formTitle").textContent = q ? `대사 수정 (#${id})` : "새 대사";
+  $("fGenre").value = q?.genre || "뮤지컬";
+  $("fWork").value = q?.work || "";
+  $("fSong").value = q?.song || "";
+  $("fText").value = q?.text || "";
+  $("fMoods").value = (q?.moods || []).join(", ");
+  $("fColor").value = q?.color || "#2C636D";
+  $("formOv").classList.add("on");
+}
+$("addBtn").onclick = () => openForm(null);
+$("fCancel").onclick = () => $("formOv").classList.remove("on");
+$("fWork").addEventListener("change", () => {
+  if (!editingId) $("fColor").value = colorForWork($("fWork").value.trim());
+});
+$("fSave").onclick = () => {
+  const work = $("fWork").value.trim();
+  const text = $("fText").value.trim();
+  if (!work || !text) { toast("작품명과 대사는 꼭 필요해요"); return; }
+  const color = $("fColor").value.toUpperCase();
+  const data = {
+    genre: $("fGenre").value,
+    work,
+    song: $("fSong").value.trim(),
+    text,
+    moods: $("fMoods").value.split(",").map((s) => s.trim()).filter(Boolean),
+    color,
+    textColor: textColorFor(color),
+  };
+  if (editingId) {
+    const q = quotes.find((x) => x.id === editingId);
+    Object.assign(q, data);
+  } else {
+    const nid = quotes.reduce((m, q) => Math.max(m, q.id), 0) + 1;
+    quotes.push({ id: nid, ...data });
+  }
+  markDirty();
+  renderList();
+  $("formOv").classList.remove("on");
+};
+
+// ── GitHub 저장 ───────────────────────────────────────
+const API = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${FILE}`;
+function ghHeaders() {
+  return {
+    Authorization: "Bearer " + localStorage.getItem("gh_token"),
+    Accept: "application/vnd.github+json",
+  };
+}
+function b64utf8(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  return btoa(bin);
+}
+$("saveBtn").onclick = async () => {
+  if (!localStorage.getItem("gh_token")) { $("tokenOv").classList.add("on"); return; }
+  const btn = $("saveBtn");
+  btn.disabled = true; btn.textContent = "저장 중…";
+  try {
+    const cur = await fetch(`${API}?ref=${BRANCH}`, { headers: ghHeaders() });
+    if (cur.status === 401 || cur.status === 403) throw new Error("열쇠(토큰)가 잘못됐거나 권한이 없어요. 🔑 열쇠 설정에서 다시 넣어주세요.");
+    if (!cur.ok) throw new Error("GitHub에서 파일을 못 찾았어요 (" + cur.status + ")");
+    const { sha } = await cur.json();
+    const body = {
+      message: `웹사이트에서 대사 업데이트 (${quotes.length}개)`,
+      content: b64utf8(JSON.stringify(quotes, null, 2) + "\n"),
+      sha, branch: BRANCH,
+    };
+    const put = await fetch(API, { method: "PUT", headers: ghHeaders(), body: JSON.stringify(body) });
+    if (!put.ok) throw new Error("저장 실패 (" + put.status + ")");
+    dirty = false; $("dirty").style.display = "none";
+    toast("저장 완료! 위젯은 다음 갱신 때 새 대사를 받아가요 🎉");
+  } catch (e) {
+    toast("⚠️ " + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = "GitHub에 저장";
+  }
+};
+
+// ── 토큰 설정 ─────────────────────────────────────────
+$("tokenBtn").onclick = () => {
+  $("tokenInput").value = localStorage.getItem("gh_token") || "";
+  $("tokenOv").classList.add("on");
+};
+$("tokenCancel").onclick = () => $("tokenOv").classList.remove("on");
+$("tokenSave").onclick = () => {
+  const v = $("tokenInput").value.trim();
+  if (!v) { toast("토큰을 붙여넣어 주세요"); return; }
+  localStorage.setItem("gh_token", v);
+  $("tokenOv").classList.remove("on");
+  toast("열쇠 저장 완료. 이제 'GitHub에 저장'이 작동해요!");
+};
+$("tokenDel").onclick = () => {
+  localStorage.removeItem("gh_token");
+  $("tokenInput").value = "";
+  toast("열쇠를 지웠어요");
+};
+
+// ── CSV/엑셀 불러오기 ─────────────────────────────────
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1); // BOM 제거
+  const rows = [];
+  let row = [], cur = "", inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { cur += '"'; i++; } else inQ = false;
+      } else cur += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ",") { row.push(cur); cur = ""; }
+    else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cur); rows.push(row); row = []; cur = "";
+    } else cur += c;
+  }
+  if (cur !== "" || row.length) { row.push(cur); rows.push(row); }
+  return rows;
+}
+
+// 엑셀(.xlsx) 읽기 — zip을 직접 풀어서 첫 시트를 표로 만든다
+function unxml(s) {
+  return s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'").replace(/&#10;/g, "\n").replace(/&amp;/g, "&");
+}
+async function parseXLSX(buf) {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  let eocd = -1;
+  for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65557); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("엑셀 파일 형식을 읽을 수 없어요");
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const files = {};
+  for (let n = 0; n < count; n++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    const nameLen = dv.getUint16(off + 28, true);
+    files[new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nameLen))] = {
+      method: dv.getUint16(off + 10, true),
+      csize: dv.getUint32(off + 20, true),
+      lho: dv.getUint32(off + 42, true),
+    };
+    off += 46 + nameLen + dv.getUint16(off + 30, true) + dv.getUint16(off + 32, true);
+  }
+  async function readZipFile(name) {
+    const f = files[name];
+    if (!f) return null;
+    const start = f.lho + 30 + dv.getUint16(f.lho + 26, true) + dv.getUint16(f.lho + 28, true);
+    const comp = u8.subarray(start, start + f.csize);
+    if (f.method === 0) return new TextDecoder().decode(comp);
+    const stream = new Blob([comp]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return await new Response(stream).text();
+  }
+  const shared = [];
+  const ssXml = await readZipFile("xl/sharedStrings.xml");
+  if (ssXml) {
+    for (const si of ssXml.match(/<si[\s>][\s\S]*?<\/si>/g) || []) {
+      const ts = si.match(/<t[^>]*>[\s\S]*?<\/t>/g) || [];
+      shared.push(ts.map((t) => unxml(t.replace(/<t[^>]*>|<\/t>/g, ""))).join(""));
+    }
+  }
+  const sheetName =
+    Object.keys(files).find((n) => n === "xl/worksheets/sheet1.xml") ||
+    Object.keys(files).find((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n));
+  const shXml = await readZipFile(sheetName);
+  if (!shXml) throw new Error("엑셀 안에서 시트를 찾을 수 없어요");
+  const rows = [];
+  for (const rowXml of shXml.match(/<row[\s>][\s\S]*?<\/row>/g) || []) {
+    const row = [];
+    for (const cXml of rowXml.match(/<c(?:[\s>][\s\S]*?)?(?:<\/c>|\/>)/g) || []) {
+      const ref = (cXml.match(/r="([A-Z]+)\d+"/) || [])[1] || "";
+      let ci = 0;
+      for (const ch of ref) ci = ci * 26 + (ch.charCodeAt(0) - 64);
+      ci = ci ? ci - 1 : row.length;
+      const type = (cXml.match(/\st="([^"]+)"/) || [])[1];
+      let val = "";
+      if (type === "inlineStr") {
+        val = unxml((cXml.match(/<t[^>]*>([\s\S]*?)<\/t>/) || ["", ""])[1]);
+      } else {
+        const v = (cXml.match(/<v[^>]*>([\s\S]*?)<\/v>/) || ["", ""])[1];
+        val = type === "s" ? shared[parseInt(v)] ?? "" : unxml(v);
+      }
+      row[ci] = val;
+    }
+    rows.push(Array.from(row, (c) => c ?? ""));
+  }
+  return rows;
+}
+
+// 한국어 엑셀이 CSV를 EUC-KR로 저장하는 경우 대비
+async function readTextSmart(file) {
+  const buf = await file.arrayBuffer();
+  try { return new TextDecoder("utf-8", { fatal: true }).decode(buf); }
+  catch { return new TextDecoder("euc-kr").decode(buf); }
+}
+
+// 표 데이터를 대사 목록에 병합: ID가 같으면 갱신(mood/색 보존), 새 것은 추가
+function importRows(rows) {
+  rows = rows.filter((r) => r.some((c) => c && String(c).trim()));
+  if (rows.length < 2) throw new Error("데이터 행이 없어요");
+  const head = rows[0].map((h) => String(h).trim().toLowerCase());
+  const col = (names) => head.findIndex((h) => names.includes(h));
+  const iId = col(["id"]);
+  const iGenre = col(["genre", "장르"]);
+  const iWork = col(["performance", "work", "작품", "작품명"]);
+  const iSong = col(["numbertitle", "song", "넘버", "곡", "넘버 제목"]);
+  const iText = col(["lyrics or line", "lyrics", "line", "text", "대사", "가사"]);
+  if (iWork < 0 || iText < 0)
+    throw new Error("작품명(performance)과 대사(lyrics or line) 컬럼이 필요해요");
+  let added = 0, updated = 0, skipped = 0;
+  for (const r of rows.slice(1)) {
+    const work = String(r[iWork] || "").trim();
+    const text = String(r[iText] || "").replace(/\\n/g, "\n").trim();
+    if (!work || !text) { skipped++; continue; }
+    const genre = iGenre >= 0 && r[iGenre] ? String(r[iGenre]).trim() : "뮤지컬";
+    const song = iSong >= 0 ? String(r[iSong] || "").trim() : "";
+    const idVal = iId >= 0 ? parseInt(r[iId]) : NaN;
+    const ex = Number.isFinite(idVal) ? quotes.find((q) => q.id === idVal) : null;
+    if (ex) {
+      const workChanged = ex.work !== work;
+      Object.assign(ex, { genre, work, song, text });
+      if (workChanged) {
+        ex.color = colorForWork(work);
+        ex.textColor = textColorFor(ex.color);
+      }
+      updated++;
+    } else {
+      if (quotes.some((q) => q.work === work && q.text === text)) { skipped++; continue; }
+      const color = colorForWork(work);
+      const nid = Number.isFinite(idVal) && !quotes.some((q) => q.id === idVal)
+        ? idVal
+        : quotes.reduce((m, q) => Math.max(m, q.id), 0) + 1;
+      quotes.push({ id: nid, genre, work, song, text, moods: [], color, textColor: textColorFor(color) });
+      added++;
+    }
+  }
+  return { added, updated, skipped };
+}
+
+$("importBtn").onclick = () => $("importFile").click();
+$("importFile").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = ""; // 같은 파일을 다시 선택할 수 있게 초기화
+  if (!file) return;
+  try {
+    let rows;
+    if (/\.(xlsx|xlsm)$/i.test(file.name)) {
+      if (typeof DecompressionStream === "undefined")
+        throw new Error("이 브라우저는 엑셀을 못 읽어요. CSV로 저장해서 올려주세요.");
+      rows = await parseXLSX(await file.arrayBuffer());
+    } else {
+      rows = parseCSV(await readTextSmart(file));
+    }
+    const r = importRows(rows);
+    renderList();
+    if (r.added || r.updated) markDirty();
+    toast(`불러오기 완료 — 추가 ${r.added} · 갱신 ${r.updated} · 건너뜀 ${r.skipped}` +
+      (r.added || r.updated ? ". 'GitHub에 저장'을 눌러야 위젯에 반영돼요!" : ""));
+  } catch (err) {
+    toast("⚠️ " + err.message);
+  }
+});
+
+// ── 탭 전환 ───────────────────────────────────────────
+function switchTab(view) {
+  $("viewPane").style.display = view ? "flex" : "none";
+  $("editPane").style.display = view ? "none" : "block";
+  $("tabView").classList.toggle("on", view);
+  $("tabEdit").classList.toggle("on", !view);
+  document.body.style.background = view ? "" : "#14141C";
+}
+$("tabView").onclick = () => switchTab(true);
+$("tabEdit").onclick = () => switchTab(false);
+
+// ── 토스트 ────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const t = $("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => (t.style.display = "none"), 3500);
+}
+
+// ── 시작: 데이터 불러오기 ─────────────────────────────
+(async () => {
+  try {
+    // 같은 폴더의 quotes.json 우선(사이트에 올렸을 때), 실패하면 raw URL
+    let res = await fetch(FILE + "?t=" + Date.now()).catch(() => null);
+    if (!res || !res.ok) res = await fetch(RAW_URL + "?t=" + Date.now());
+    quotes = await res.json();
+    showNow();
+    renderList();
+  } catch (e) {
+    $("vText").textContent = "대사를 불러오지 못했어요.\n인터넷 연결을 확인해 주세요.";
+  }
+})();
+</script>
+</body>
+</html>
