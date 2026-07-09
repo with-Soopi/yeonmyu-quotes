@@ -5,7 +5,7 @@
 
 // ▼ 여기에 GitHub raw URL을 붙여넣으세요.
 //   예: https://raw.githubusercontent.com/<아이디>/<저장소>/main/quotes.json
-const JSON_URL = "";
+const JSON_URL = "https://raw.githubusercontent.com/with-Soopi/yeonmyu-quotes/refs/heads/main/quotes.json";
 
 // 대사 폰트: 기본 시스템 폰트(산세리프). 세리프 느낌을 원하면
 // 아래를 "georgia"로 바꿔보세요. (iOS 내장 세리프 폰트)
@@ -136,18 +136,74 @@ function buildErrorWidget() {
   return w;
 }
 
+// ── 전체화면 뷰: 위젯을 탭하면 열리고, 버튼으로 문장을 넘긴다 ──
+function browserHTML(quotes) {
+  // </script> 등이 끼어들어도 안전하게 < 를 이스케이프
+  const data = JSON.stringify(quotes).replace(/</g, "\\u003c");
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-user-select:none;
+      -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body { display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-family: ui-serif, Georgia, serif; padding:40px 30px; text-align:center;
+    transition: background-color .45s ease, color .45s ease; }
+  #text { font-size:27px; line-height:1.62; white-space:pre-line; font-weight:500;
+    letter-spacing:.2px; }
+  #moods { margin-top:24px; font-size:14px; opacity:.7; }
+  #work  { margin-top:10px; font-size:15px; opacity:.82; }
+  #next  { margin-top:44px; padding:14px 28px; border:1px solid currentColor;
+    border-radius:999px; background:transparent; color:inherit; font-size:16px;
+    font-family:inherit; opacity:.85; transition:opacity .2s; }
+  #next:active { opacity:.45; }
+</style></head>
+<body>
+  <div id="text"></div>
+  <div id="moods"></div>
+  <div id="work"></div>
+  <button id="next">다음 문장 →</button>
+  <script>
+    const QUOTES = ${data};
+    let last = -1;
+    function pick() {
+      let i = Math.floor(Math.random() * QUOTES.length);
+      if (QUOTES.length > 1) { while (i === last) i = Math.floor(Math.random() * QUOTES.length); }
+      last = i;
+      const q = QUOTES[i];
+      document.body.style.backgroundColor = q.color || '#1C1C2E';
+      document.body.style.color = q.textColor || '#FAF6EF';
+      document.getElementById('text').textContent = q.text || '';
+      document.getElementById('moods').textContent = (q.moods || []).map(m => '#' + m).join('  ');
+      document.getElementById('work').textContent =
+        (q.genre ? q.genre + ' ' : '') + '〈' + (q.work || '') + '〉' + (q.song ? ' · ' + q.song : '');
+    }
+    document.getElementById('next').addEventListener('click', pick);
+    pick();
+  </script>
+</body></html>`;
+}
+
+async function presentBrowser(quotes) {
+  const wv = new WebView();
+  await wv.loadHTML(browserHTML(quotes));
+  await wv.present(true); // 전체화면
+}
+
 // ── 실행 ─────────────────────────────────────────────────────
 const { quotes, fromCache } = await loadQuotes();
-const family = config.widgetFamily || "medium"; // 앱에서 실행 시 중형 미리보기
-const widget = quotes
-  ? buildWidget(todaysQuote(quotes), family, fromCache)
-  : buildErrorWidget();
 
 if (config.runsInWidget) {
+  // 홈 화면 위젯: 오늘의 대사(날짜 시드)를 보여줌
+  const family = config.widgetFamily || "medium";
+  const widget = quotes
+    ? buildWidget(todaysQuote(quotes), family, fromCache)
+    : buildErrorWidget();
   Script.setWidget(widget);
+} else if (quotes) {
+  // 위젯을 탭했거나 앱에서 직접 실행: 문장을 넘겨보는 전체화면 뷰
+  await presentBrowser(quotes);
 } else {
-  if (family === "small") await widget.presentSmall();
-  else if (family === "large") await widget.presentLarge();
-  else await widget.presentMedium();
+  await buildErrorWidget().presentMedium();
 }
 Script.complete();
